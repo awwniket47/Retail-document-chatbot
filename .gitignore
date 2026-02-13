@@ -1,0 +1,9 @@
+# Ignore dependencies
+node_modules/
+venv/
+__pycache__/
+
+# Ignore Environment Variables (Security!)
+.env
+.env.local
+.DS_Store
