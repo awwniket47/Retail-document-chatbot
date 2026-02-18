@@ -42,7 +42,10 @@ embeddings = GoogleGenerativeAIEmbeddings(
 def get_chroma_client():
     return chromadb.HttpClient(
         host="https://api.trychroma.com",
-        headers={"Authorization": f"Bearer {CHROMA_API_KEY}"},
+        headers={
+            "Authorization": f"Bearer {CHROMA_API_KEY}",
+            "x-chroma-token": CHROMA_API_KEY  # ✅ Add this line
+        },
         tenant=CHROMA_TENANT,
         database=CHROMA_DATABASE
     )
@@ -61,6 +64,18 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: List[str]
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+async def root():
+    """Redirects the root URL to the API documentation"""
+    return {"message": "Retail Chatbot API is running. Use /docs for documentation."}
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Handles the browser's automatic favicon request to stop 404 logs"""
+    return RedirectResponse(url="https://fastapi.tiangolo.com/img/favicon.png")
+
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
