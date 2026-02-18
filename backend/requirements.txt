@@ -1,12 +1,24 @@
+# Web framework
 fastapi==0.115.0
 uvicorn==0.31.0
 python-multipart==0.0.12
+
+# LangChain + Google Gemini
 langchain>=0.3.0,<0.4.0
 langchain-community>=0.3.0,<0.4.0
 langchain-google-genai>=2.0.0
 langchain-chroma>=0.1.4
+
+# Vector store
 chromadb>=0.5.0
+
+# Document loading
 pypdf==5.0.1
 pillow==10.4.0
+
+# Firebase Admin SDK (auth + Firestore)
+firebase-admin>=6.0.0
+
+# Utilities
 python-dotenv==1.0.1
 tiktoken==0.7.0
