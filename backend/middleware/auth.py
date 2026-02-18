@@ -5,6 +5,8 @@ get_current_user          → requires valid token, raises 401 if missing/invali
 get_current_user_optional → returns user dict if token present, None if not
 """
 
+import json
+import os
 from typing import Optional
 
 import firebase_admin
@@ -19,11 +21,32 @@ from core.config import FIREBASE_CREDENTIALS_PATH, FIREBASE_PROJECT_ID
 def _init_firebase() -> None:
     if firebase_admin._apps:
         return
+
+    # 1. Railway / production: read credentials from env var (JSON string)
+    cred_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+    if cred_json:
+        try:
+            cred = credentials.Certificate(json.loads(cred_json))
+            firebase_admin.initialize_app(cred, {"projectId": FIREBASE_PROJECT_ID})
+            return
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Firebase credentials from FIREBASE_CREDENTIALS_JSON: {e}")
+
+    # 2. Local dev: read credentials from file path in .env
+    if FIREBASE_CREDENTIALS_PATH:
+        try:
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+            firebase_admin.initialize_app(cred, {"projectId": FIREBASE_PROJECT_ID})
+            return
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Firebase credentials from file path: {e}")
+
+    # 3. Last resort: GCP Application Default Credentials
     try:
-        cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-    except Exception:
         cred = credentials.ApplicationDefault()
-    firebase_admin.initialize_app(cred, {"projectId": FIREBASE_PROJECT_ID})
+        firebase_admin.initialize_app(cred, {"projectId": FIREBASE_PROJECT_ID})
+    except Exception as e:
+        raise RuntimeError(f"No Firebase credentials found. Set FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_PATH. Error: {e}")
 
 
 _init_firebase()

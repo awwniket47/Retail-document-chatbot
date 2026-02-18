@@ -10,6 +10,7 @@ API Docs:
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -33,10 +34,16 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Tighten ALLOWED_ORIGINS in production (replace * with your frontend domain)
+# Set ALLOWED_ORIGINS in Railway env vars, e.g.:
+#   ALLOWED_ORIGINS=https://your-app.vercel.app
+# Multiple origins: comma-separated
+#   ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-custom-domain.com
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173")
+allowed_origins = [o.strip() for o in _raw_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
