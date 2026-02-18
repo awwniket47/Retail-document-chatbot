@@ -1,235 +1,196 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
-import Sidebar from '../components/Sidebar'
-import MessageBubble from '../components/MessageBubble'
-import TypingIndicator from '../components/TypingIndicator'
-import { Send, Menu, Sparkles, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react'
-import { useDropzone } from 'react-dropzone'
+import {
+  Plus, Trash2, LogOut, LogIn, FileText,
+  ChevronDown, Sparkles, X, MessageSquare
+} from 'lucide-react'
 
-export default function ChatPage() {
-  const { user } = useAuth()
-  const { messages, isTyping, chat, documents, loadHistory, upload, uploading, uploadProgress } = useChat()
-  const [input, setInput]         = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [uploadMsg, setUploadMsg] = useState(null)
-  const bottomRef   = useRef(null)
-  const textareaRef = useRef(null)
+export default function Sidebar({ isOpen, onClose }) {
+  const { user, logout } = useAuth()
+  const { documents = [], pastSessions = [], newChat, restoreSession, deleteHistory, loadHistory } = useChat()
+  const navigate = useNavigate()
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [activeSessionId, setActiveSessionId] = useState(null)
 
   useEffect(() => {
     if (user) loadHistory()
-  }, [user])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
-
-  const handleSend = async () => {
-    const q = input.trim()
-    if (!q || isTyping) return
-    setInput('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    await chat(q)
+  const handleLogout = async () => {
+    await logout()
+    navigate('/')
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+  const handleNewChat = () => {
+    newChat()
+    setActiveSessionId(null)
+    onClose()
   }
 
-  const handleTextareaInput = (e) => {
-    setInput(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
+  const handleRestoreSession = (session) => {
+    restoreSession(session)
+    setActiveSessionId(session.id)
+    onClose()
   }
 
-  const onDrop = async (acceptedFiles) => {
-    const file = acceptedFiles[0]
-    if (!file) return
-    setUploadMsg(null)
-    try {
-      const result = await upload(file)
-      setUploadMsg({ type: 'success', text: `"${result.filename}" added — ${result.chunks_added} chunks` })
-    } catch {
-      setUploadMsg({ type: 'error', text: 'Upload failed. Please try again.' })
-    }
-    setTimeout(() => setUploadMsg(null), 4000)
+  const timeAgo = (timestamp) => {
+    const diff = Date.now() - new Date(timestamp).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
   }
-
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1,
-    noClick: true,
-    noKeyboard: true,
-  })
 
   return (
-    <div className="flex h-screen bg-surface overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={onClose} />
+      )}
 
-      <main className="flex-1 flex flex-col min-w-0 relative">
+      <aside className={`
+        fixed top-0 left-0 h-full w-64 bg-surface-1 border-r border-border z-30
+        flex flex-col transition-transform duration-300
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:static lg:z-auto
+      `}>
 
-        {/* Top bar */}
-        <header className="flex items-center gap-3 px-4 py-3 border-b border-border bg-surface/80 backdrop-blur-md">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden btn-ghost p-2">
-            <Menu size={18} />
+        {/* Header */}
+        <div className="p-4 flex items-center justify-between border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-accent/20 border border-accent/30 flex items-center justify-center">
+              <Sparkles size={14} className="text-accent" />
+            </div>
+            <span className="text-white font-semibold text-sm tracking-tight">Retail Doc Intel</span>
+          </div>
+          <button onClick={onClose} className="lg:hidden btn-ghost p-1.5">
+            <X size={16} />
           </button>
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <h1 className="text-white/80 font-medium text-sm">
-              {documents.length > 0
-                ? `Chatting with ${documents.length} document${documents.length > 1 ? 's' : ''}`
-                : 'Retail Doc Intel'
-              }
-            </h1>
-            {documents.length > 0 && (
-              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                {documents.map((doc, i) => (
-                  <span key={i} className="flex items-center gap-1 text-white/25 text-xs">
-                    <FileText size={10} />
-                    <span className="truncate max-w-[120px]">{doc.name}</span>
-                    {i < documents.length - 1 && <span className="text-white/15">·</span>}
-                  </span>
+        {/* New Chat */}
+        <div className="p-3 shrink-0">
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border hover:border-accent/30 hover:bg-accent/5 text-white/60 hover:text-white transition-all text-sm group"
+          >
+            <Plus size={15} className="group-hover:text-accent transition-colors" />
+            New Chat
+          </button>
+        </div>
+
+        {/* Current session documents */}
+        {documents.length > 0 && (
+          <div className="px-3 pb-3 shrink-0">
+            <p className="text-white/25 text-xs font-medium px-1 mb-1.5 uppercase tracking-wider">
+              Current Docs
+            </p>
+            <div className="space-y-1">
+              {documents.map((doc, i) => (
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-2">
+                  <FileText size={12} className="text-accent shrink-0" />
+                  <span className="text-white/60 text-xs truncate">{doc.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Chat History */}
+        <div className="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
+          {pastSessions.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <p className="text-white/25 text-xs font-medium uppercase tracking-wider">History</p>
+                <button
+                  onClick={deleteHistory}
+                  className="text-white/20 hover:text-red-400 transition-colors"
+                  title="Clear all history"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {pastSessions.map(session => (
+                  <button
+                    key={session.id}
+                    onClick={() => handleRestoreSession(session)}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg hover:bg-surface-3 group transition-colors
+                      ${activeSessionId === session.id ? 'bg-surface-3 border border-accent/20' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MessageSquare size={12} className="text-white/25 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white/50 text-xs truncate group-hover:text-white/70 transition-colors">
+                          {session.title}
+                        </p>
+                        {session.documents?.length > 0 && (
+                          <p className="text-white/20 text-xs truncate mt-0.5">
+                            {session.documents.map(d => d.name).join(', ')}
+                          </p>
+                        )}
+                        <p className="text-white/15 text-xs mt-0.5">
+                          {timeAgo(session.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Add PDF button — visible once at least 1 doc uploaded */}
-          {documents.length > 0 && (
-            <div className="flex items-center gap-2 shrink-0">
-              {uploadMsg && (
-                <span className={`text-xs hidden sm:flex items-center gap-1 animate-fade-in
-                  ${uploadMsg.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {uploadMsg.type === 'success' ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
-                  {uploadMsg.text}
-                </span>
-              )}
-              <button
-                onClick={open}
-                disabled={uploading}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
-                  ${uploading
-                    ? 'border-border text-white/30 cursor-not-allowed'
-                    : 'border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent'
-                  }`}
-              >
-                <Upload size={12} />
-                {uploading ? `${uploadProgress}%` : 'Add PDF'}
-              </button>
-              <input {...getInputProps()} />
-            </div>
+            </>
+          ) : (
+            <p className="text-white/15 text-xs text-center mt-6 px-2">
+              Your chat history will appear here
+            </p>
           )}
-        </header>
+        </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5" {...getRootProps()}>
-          {messages.length === 0 ? (
-            <div className={`h-full flex flex-col items-center justify-center text-center animate-fade-in transition-all
-              ${isDragActive ? 'opacity-40 scale-95' : ''}`}
-            >
-              <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
-                <Sparkles size={24} className="text-accent/60" />
-              </div>
-
-              <h2 className="text-white/50 font-medium mb-2">
-                {documents.length === 0 ? 'Upload a document to get started' : 'Ask anything about your documents'}
-              </h2>
-              <p className="text-white/25 text-sm max-w-sm mb-6">
-                {documents.length === 0
-                  ? 'Upload a retail PDF and start chatting about its contents'
-                  : 'Your documents are indexed and ready. Ask questions about products, reports, or manuals.'
-                }
-              </p>
-
-              {/* Upload button — only when no docs yet */}
-              {documents.length === 0 && (
-                <div className="flex flex-col items-center gap-3">
-                  <button
-                    onClick={open}
-                    disabled={uploading}
-                    className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl border transition-all text-sm font-medium
-                      ${uploading
-                        ? 'border-border text-white/30 cursor-not-allowed'
-                        : 'border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent hover:text-accent-light'
-                      }`}
-                  >
-                    <Upload size={15} />
-                    {uploading ? `Uploading... ${uploadProgress}%` : 'Upload PDF'}
-                  </button>
-                  {uploading && (
-                    <div className="w-48 bg-surface-3 rounded-full h-1">
-                      <div className="bg-accent h-1 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                  )}
-                  {uploadMsg && (
-                    <p className={`text-xs ${uploadMsg.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {uploadMsg.text}
-                    </p>
-                  )}
-                  <p className="text-white/20 text-xs">or drag & drop a PDF anywhere</p>
+        {/* User Section */}
+        <div className="p-3 border-t border-border shrink-0">
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(v => !v)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-surface-3 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-xs font-semibold shrink-0">
+                  {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
                 </div>
-              )}
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-white/80 text-xs font-medium truncate">
+                    {user.displayName || 'User'}
+                  </p>
+                  <p className="text-white/30 text-xs truncate">{user.email}</p>
+                </div>
+                <ChevronDown size={13} className="text-white/30 shrink-0" />
+              </button>
 
-              {/* Suggested prompts */}
-              {documents.length > 0 && (
-                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                  {['Summarize the key points', 'What are the main products?', 'Give me the pricing details', 'What are the sales highlights?'].map(prompt => (
-                    <button
-                      key={prompt}
-                      onClick={() => setInput(prompt)}
-                      className="px-3 py-1.5 rounded-full border border-border hover:border-accent/30 hover:bg-accent/5 text-white/40 hover:text-white/70 text-xs transition-all"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+              {showUserMenu && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 glass rounded-xl p-1 animate-fade-in">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white text-sm transition-colors"
+                  >
+                    <LogOut size={14} />
+                    Sign out
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            <>
-              {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
-              {isTyping && <TypingIndicator />}
-            </>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Input */}
-        <div className="px-4 py-4 border-t border-border bg-surface/80 backdrop-blur-md">
-          <div className="max-w-3xl mx-auto">
-            <div className={`flex items-end gap-3 bg-surface-2 border rounded-2xl px-4 py-3 transition-colors
-              ${isTyping ? 'border-border opacity-70' : 'border-border focus-within:border-accent/40'}`}
+            <button
+              onClick={() => navigate('/')}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-3 text-white/40 hover:text-white/70 transition-colors text-sm"
             >
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleTextareaInput}
-                onKeyDown={handleKeyDown}
-                placeholder={documents.length === 0 ? 'Upload a document first...' : 'Ask about your documents...'}
-                disabled={isTyping}
-                rows={1}
-                className="flex-1 bg-transparent text-sm text-white/90 placeholder-white/25 focus:outline-none resize-none leading-relaxed max-h-40"
-                style={{ minHeight: '24px' }}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isTyping}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all
-                  ${input.trim() && !isTyping ? 'bg-accent hover:bg-accent-light text-white' : 'bg-surface-3 text-white/20 cursor-not-allowed'}`}
-              >
-                <Send size={14} />
-              </button>
-            </div>
-            <p className="text-center text-white/15 text-xs mt-2">
-              Responses are grounded in your uploaded documents
-            </p>
-          </div>
+              <LogIn size={14} />
+              Sign in
+            </button>
+          )}
         </div>
-      </main>
-    </div>
+      </aside>
+    </>
   )
 }

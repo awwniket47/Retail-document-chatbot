@@ -18,7 +18,7 @@ FIREBASE_CREDENTIALS_PATH: str = os.environ.get(
 )
 
 # ── Model Names ────────────────────────────────────────────────────────────────
-CHAT_MODEL      = "models/gemini-flash-latest"
+CHAT_MODEL      = "models/gemini-2.5-flash"  
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 # ── Vector Store ───────────────────────────────────────────────────────────────

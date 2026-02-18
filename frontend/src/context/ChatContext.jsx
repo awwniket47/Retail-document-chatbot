@@ -14,8 +14,6 @@ export function ChatProvider({ children }) {
   const [uploading, setUploading]           = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [sessionId, setSessionId]           = useState(generateSessionId)
-
-  // Past sessions stored locally for sidebar history
   const [pastSessions, setPastSessions]     = useState([])
 
   const loadHistory = useCallback(async () => {
@@ -82,7 +80,6 @@ export function ChatProvider({ children }) {
     }
   }, [sessionId])
 
-  // New chat — save current session to history, then reset
   const newChat = useCallback(() => {
     if (messages.length > 0) {
       const firstUserMsg = messages.find(m => m.role === 'user')
@@ -102,7 +99,6 @@ export function ChatProvider({ children }) {
     setSessionId(generateSessionId())
   }, [messages, documents, sessionId])
 
-  // Restore a past session
   const restoreSession = useCallback((session) => {
     setMessages(session.messages)
     setDocuments(session.documents)
@@ -110,18 +106,28 @@ export function ChatProvider({ children }) {
   }, [])
 
   const deleteHistory = useCallback(async () => {
-    if (user) await clearHistory()
+    if (user) {
+      try { await clearHistory() } catch (e) { console.error(e) }
+    }
     setMessages([])
     setPastSessions([])
   }, [user])
 
   return (
     <ChatContext.Provider value={{
-      messages, documents, isTyping,
-      uploading, uploadProgress, sessionId,
+      messages,
+      documents,
+      isTyping,
+      uploading,
+      uploadProgress,
+      sessionId,
       pastSessions,
-      chat, upload, loadHistory,
-      newChat, restoreSession, deleteHistory,
+      chat,
+      upload,
+      loadHistory,
+      newChat,
+      restoreSession,
+      deleteHistory,
     }}>
       {children}
     </ChatContext.Provider>

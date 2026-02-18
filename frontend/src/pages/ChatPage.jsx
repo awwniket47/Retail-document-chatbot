@@ -10,15 +10,16 @@ import { useDropzone } from 'react-dropzone'
 export default function ChatPage() {
   const { user } = useAuth()
   const { messages, isTyping, chat, documents, loadHistory, upload, uploading, uploadProgress } = useChat()
-  const [input, setInput]         = useState('')
+  const [input, setInput]             = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [uploadMsg, setUploadMsg] = useState(null)
-  const bottomRef   = useRef(null)
-  const textareaRef = useRef(null)
+  const [uploadMsg, setUploadMsg]     = useState(null)
+  const bottomRef    = useRef(null)
+  const textareaRef  = useRef(null)
+  const fileInputRef = useRef(null)  // dedicated hidden file input
 
   useEffect(() => {
     if (user) loadHistory()
-  }, [user])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -45,8 +46,7 @@ export default function ChatPage() {
     e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
   }
 
-  const onDrop = async (acceptedFiles) => {
-    const file = acceptedFiles[0]
+  const handleFile = async (file) => {
     if (!file) return
     setUploadMsg(null)
     try {
@@ -58,16 +58,36 @@ export default function ChatPage() {
     setTimeout(() => setUploadMsg(null), 4000)
   }
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    onDrop,
+  // Drag-and-drop on the chat area
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => handleFile(acceptedFiles[0]),
     accept: { 'application/pdf': ['.pdf'] },
     maxFiles: 1,
     noClick: true,
     noKeyboard: true,
   })
 
+  // Hidden <input type="file"> — triggered by any button anywhere on the page
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+    e.target.value = ''  // reset so same file can be picked again
+  }
+
+  const openFilePicker = () => fileInputRef.current?.click()
+
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
+
+      {/* Single hidden file input used by all upload buttons */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
+
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 flex flex-col min-w-0 relative">
@@ -98,7 +118,7 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Add PDF button — visible once at least 1 doc uploaded */}
+          {/* Add PDF button — visible after first upload */}
           {documents.length > 0 && (
             <div className="flex items-center gap-2 shrink-0">
               {uploadMsg && (
@@ -109,7 +129,7 @@ export default function ChatPage() {
                 </span>
               )}
               <button
-                onClick={open}
+                onClick={openFilePicker}
                 disabled={uploading}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
                   ${uploading
@@ -120,17 +140,22 @@ export default function ChatPage() {
                 <Upload size={12} />
                 {uploading ? `${uploadProgress}%` : 'Add PDF'}
               </button>
-              <input {...getInputProps()} />
             </div>
           )}
         </header>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5" {...getRootProps()}>
+        {/* Messages / drop zone */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5 relative" {...getRootProps()}>
+
+          {/* Drag overlay */}
+          {isDragActive && (
+            <div className="absolute inset-0 z-10 bg-accent/5 border-2 border-dashed border-accent/40 flex items-center justify-center pointer-events-none">
+              <p className="text-accent text-sm font-medium">Drop PDF here</p>
+            </div>
+          )}
+
           {messages.length === 0 ? (
-            <div className={`h-full flex flex-col items-center justify-center text-center animate-fade-in transition-all
-              ${isDragActive ? 'opacity-40 scale-95' : ''}`}
-            >
+            <div className="h-full flex flex-col items-center justify-center text-center animate-fade-in">
               <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
                 <Sparkles size={24} className="text-accent/60" />
               </div>
@@ -145,11 +170,10 @@ export default function ChatPage() {
                 }
               </p>
 
-              {/* Upload button — only when no docs yet */}
               {documents.length === 0 && (
                 <div className="flex flex-col items-center gap-3">
                   <button
-                    onClick={open}
+                    onClick={openFilePicker}
                     disabled={uploading}
                     className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl border transition-all text-sm font-medium
                       ${uploading
@@ -162,7 +186,10 @@ export default function ChatPage() {
                   </button>
                   {uploading && (
                     <div className="w-48 bg-surface-3 rounded-full h-1">
-                      <div className="bg-accent h-1 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      <div
+                        className="bg-accent h-1 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
                     </div>
                   )}
                   {uploadMsg && (
@@ -174,7 +201,6 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {/* Suggested prompts */}
               {documents.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                   {['Summarize the key points', 'What are the main products?', 'Give me the pricing details', 'What are the sales highlights?'].map(prompt => (
@@ -219,7 +245,10 @@ export default function ChatPage() {
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
                 className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all
-                  ${input.trim() && !isTyping ? 'bg-accent hover:bg-accent-light text-white' : 'bg-surface-3 text-white/20 cursor-not-allowed'}`}
+                  ${input.trim() && !isTyping
+                    ? 'bg-accent hover:bg-accent-light text-white'
+                    : 'bg-surface-3 text-white/20 cursor-not-allowed'
+                  }`}
               >
                 <Send size={14} />
               </button>
