@@ -17,17 +17,17 @@ api.interceptors.request.use(async (config) => {
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
 export const sendMessage = async (query, sessionId) => {
-  const { data } = await api.post('/chat', { query, session_id: sessionId })
+  const { data } = await api.post('/api/chat', { query, session_id: sessionId })
   return data
 }
 
 export const fetchHistory = async () => {
-  const { data } = await api.get('/chat/history')
+  const { data } = await api.get('/api/chat/history')
   return data.messages
 }
 
 export const clearHistory = async () => {
-  await api.delete('/chat/history')
+  await api.delete('/api/chat/history')
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ export const uploadDocument = async (file, sessionId, onProgress) => {
   const form = new FormData()
   form.append('file', file)
   form.append('session_id', sessionId)
-  const { data } = await api.post('/upload', form, {
+  const { data } = await api.post('/api/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: (e) => {
       if (onProgress) onProgress(Math.round((e.loaded * 100) / e.total))
@@ -48,6 +48,6 @@ export const uploadDocument = async (file, sessionId, onProgress) => {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export const fetchMe = async () => {
-  const { data } = await api.get('/auth/me')
+  const { data } = await api.get('/api/auth/me')
   return data
 }
