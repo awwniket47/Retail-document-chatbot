@@ -34,16 +34,13 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Set ALLOWED_ORIGINS in Railway env vars, e.g.:
-#   ALLOWED_ORIGINS=https://your-app.vercel.app
-# Multiple origins: comma-separated
-#   ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-custom-domain.com
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173")
 allowed_origins = [o.strip() for o in _raw_origins.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://retail-document-chatbot(-[a-z0-9]+)*-awwniket47s-projects\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
