@@ -19,7 +19,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/"     element={<LoginPage />} />
       <Route path="/chat" element={<ChatPage />} />
-      <Route path="*"     element={<Navigate to="/" replace />} />
+      <Route path="*"     element={<Navigate to="/" replace />} />  
     </Routes>
   )
 }
