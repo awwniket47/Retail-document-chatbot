@@ -6,6 +6,8 @@ const ChatContext = createContext(null)
 
 const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
+const MAX_PAST_SESSIONS = 10
+
 export function ChatProvider({ children }) {
   const { user } = useAuth()
   const [messages, setMessages]             = useState([])
@@ -83,16 +85,20 @@ export function ChatProvider({ children }) {
   const newChat = useCallback(() => {
     if (messages.length > 0) {
       const firstUserMsg = messages.find(m => m.role === 'user')
-      setPastSessions(prev => [
-        {
-          id: sessionId,
-          title: firstUserMsg?.content?.slice(0, 50) || 'Untitled chat',
-          messages,
-          documents,
-          timestamp: new Date().toISOString(),
-        },
-        ...prev,
-      ])
+      setPastSessions(prev => {
+        const updated = [
+          {
+            id: sessionId,
+            title: firstUserMsg?.content?.slice(0, 60) || 'Untitled chat',
+            messages,
+            documents,
+            timestamp: new Date().toISOString(),
+          },
+          ...prev.filter(s => s.id !== sessionId), // avoid duplicates
+        ]
+        // Keep only the most recent MAX_PAST_SESSIONS
+        return updated.slice(0, MAX_PAST_SESSIONS)
+      })
     }
     setMessages([])
     setDocuments([])
@@ -103,6 +109,10 @@ export function ChatProvider({ children }) {
     setMessages(session.messages)
     setDocuments(session.documents)
     setSessionId(session.id)
+  }, [])
+
+  const deleteSession = useCallback((id) => {
+    setPastSessions(prev => prev.filter(s => s.id !== id))
   }, [])
 
   const deleteHistory = useCallback(async () => {
@@ -127,6 +137,7 @@ export function ChatProvider({ children }) {
       loadHistory,
       newChat,
       restoreSession,
+      deleteSession,
       deleteHistory,
     }}>
       {children}

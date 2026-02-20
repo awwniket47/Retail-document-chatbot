@@ -102,7 +102,7 @@ export default function ChatPage() {
             <h1 className="text-white/80 font-medium text-sm">
               {documents.length > 0
                 ? `Chatting with ${documents.length} document${documents.length > 1 ? 's' : ''}`
-                : 'Retail Doc Intel'
+                : 'Retail AI'
               }
             </h1>
             {documents.length > 0 && (
