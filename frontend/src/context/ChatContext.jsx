@@ -17,6 +17,7 @@ export function ChatProvider({ children }) {
   const [pastSessions, setPastSessions]     = useState([])
 
   const loadHistory = useCallback(async () => {
+    // Only load history for authenticated users — guests have no token
     if (!user) return
     try {
       const history = await fetchHistory()
@@ -83,16 +84,20 @@ export function ChatProvider({ children }) {
   const newChat = useCallback(() => {
     if (messages.length > 0) {
       const firstUserMsg = messages.find(m => m.role === 'user')
-      setPastSessions(prev => [
-        {
-          id: sessionId,
-          title: firstUserMsg?.content?.slice(0, 50) || 'Untitled chat',
-          messages,
-          documents,
-          timestamp: new Date().toISOString(),
-        },
-        ...prev,
-      ])
+      setPastSessions(prev => {
+        // Don't add a duplicate if this session is already saved
+        if (prev.some(s => s.id === sessionId)) return prev
+        return [
+          {
+            id: sessionId,
+            title: firstUserMsg?.content?.slice(0, 50) || 'Untitled chat',
+            messages,
+            documents,
+            timestamp: new Date().toISOString(),
+          },
+          ...prev,
+        ]
+      })
     }
     setMessages([])
     setDocuments([])
